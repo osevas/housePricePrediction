@@ -16,7 +16,7 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
-from sklearn.feature_selection import VarianceThreshold
+from sklearn.feature_selection import VarianceThreshold, f_regression
 
 
 
@@ -61,6 +61,8 @@ plt.show()
 # %%--------------------------------------------
 # Feature Analysis
 # --------------------------------------------
+# Categorizing features into types
+#
 # types of features:
 # 1) categorical -> to be encoded
 # 2) continuous -> with square feet unit
@@ -91,27 +93,48 @@ column_df.iloc[33,1]=5
 column_df.iloc[16:24,1]=4
 column_df.iloc[25,1]=4
 column_df.iloc[34,1]=4
-print(column_df)
-print('\n')
+# print(column_df)
+# print('\n')
 
 df_3=df_1.select_dtypes(include='object')
 column1_df=pd.DataFrame(data={'cols':df_3.columns.values,'col_category':1*np.ones(df_3.columns.values.shape[0])},dtype='int')
 column_df=column1_df.append(column_df)
 
+# Delete unnecessary variable for clarity
+del df_2,df_3,column1_df
 
-#%%
+
+#%% --------------------------------------------
+# Imputation for missing values
+# --------------------------------------------
+
+
+#%% --------------------------------------------
+# Feature Selection for continuous features
+# ----------------------------------------------
+continuous_cols=column_df[column_df['col_category']==2]['cols'].to_list()
+df_1_contin=df_1[continuous_cols[:-1]] #removing Y column
+df_1_contin[df_1_contin['LotFrontage'].isnull()==True] # column 'LotFrontage' has null values
+
+#Trying Variance Threshold for feature selection
+sel_variance=VarianceThreshold()
+sel_variance_result=sel_variance.fit_transform(df_1_contin)
+print('Column count of Variance Threshold: {}'.format(sel_variance_result.shape[1]))
+if sel_variance_result.shape[1]==df_1_contin.shape[1]:
+    print('Variance Threshold is not working\n')
+
+# Trying f_regression for feature selection
+f_test,p_val=f_regression(df_1_contin,df_1['SalePrice'])
+print(f_test)
+
+print(p_val)
+
 
 # X_cols=['LotFrontage','LotArea','MasVnrArea'] #select a few columns for trials
-# selector=VarianceThreshold()
-# reduced_cols=selector.fit_transform(df_1[X_cols])
 
-# if len(X_cols)==reduced_cols.shape[1]:
-#     print('Dimension reduction did not work.')
-
-# # %%
-
-# # %%
 # plt.figure()
 # sns.pairplot(df_1[['LotFrontage','LotArea','SalePrice']])
 # plt.show()
 # # %%
+
+# %%
