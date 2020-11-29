@@ -17,6 +17,9 @@ import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
 from sklearn.feature_selection import VarianceThreshold, f_regression
+from sklearn.impute import KNNImputer
+from sklearn.model_selection import train_test_split
+from sklearn import preprocessing
 
 
 
@@ -103,38 +106,108 @@ column_df=column1_df.append(column_df)
 # Delete unnecessary variable for clarity
 del df_2,df_3,column1_df
 
+#%% --------------------------------------------
+# Feature Selection for continuous features (type=2)
+# ----------------------------------------------
+continuous_cols=column_df[column_df['col_category']==2]['cols'].to_list()
+# df_1_contin=df_1[continuous_cols] 
+# df_1_contin[df_1_contin['LotFrontage'].isnull()==True] # column 'LotFrontage' and 'MasVnrArea' has null values
+
+# Analyzing continuous columns with missing values
+# Columns: 'LotFrontage' and 'MasVnrArea'
+# Purpose: is KNNImputation appropriate for imputation
+
+# df_1_contin.fillna(value=-10,inplace=True)
+
+# fig, axs=plt.subplots(nrows=1,ncols=2,figsize=(20,10))
+# axs[0].scatter(df_1_contin['SalePrice'],df_1_contin['LotFrontage'])
+# axs[0].set_title('LotFrontage')
+
+# axs[1].scatter(df_1_contin['SalePrice'],df_1_contin['MasVnrArea'])
+# axs[1].set_title('MasVnrArea')
+
+# plt.show() # DISCUSSION: Missing values have data close to themselves.  KnnImputation will be appropriate
+
+# ----------------------------------------------
+# fig, axs=plt.subplots(nrows=1,ncols=2,figsize=(20,10))
+# axs[0].hist(df_1['LotFrontage'])
+# axs[0].set_title('LotFrontage')
+
+# axs[1].hist(df_1['MasVnrArea'])
+# axs[1].set_title('MasVnrArea')
+
+# plt.show()
+
+# fig, axs=plt.subplots(nrows=1,ncols=2,figsize=(20,10))
+# axs[0].scatter(df_1['SalePrice'],df_1['LotFrontage'])
+# axs[0].set_title('LotFrontage')
+
+# axs[1].scatter(df_1['SalePrice'],df_1['MasVnrArea'])
+# axs[1].set_title('MasVnrArea')
+
+# plt.show()
+# ----------------------------------------------
 
 #%% --------------------------------------------
 # Imputation for missing values
 # --------------------------------------------
+# using KNNImputer to fill in nulls in 
+imputer=KNNImputer(n_neighbors=10,copy=False)
+imputed=imputer.fit_transform(df_1[continuous_cols[:-1]],y=df_1['SalePrice'])
+df_1[continuous_cols[:-1]]=imputed
+
+
+
+#%%
+#Trying Variance Threshold for feature selection
+sel_variance=VarianceThreshold()
+sel_variance_result=sel_variance.fit_transform(df_1[continuous_cols[:-1]])
+print('Column count of Variance Threshold: {}'.format(sel_variance_result.shape[1]))
+if sel_variance_result.shape[1]==df_1[continuous_cols[:-1]].shape[1]:
+    print('Variance Threshold is not working\n')
+
+#%% Trying f_regression for feature selection
+f_test,p_val=f_regression(df_1[continuous_cols[:-1]],df_1['SalePrice'])
+# print(f_test/f_test.max())
+
+scores=f_test/f_test.max()
+
+plt.figure()
+plt.bar(x=np.arange(p_val.shape[0]),height=scores,label='F-scores normalized')
+plt.xticks(ticks=np.arange(p_val.shape[0]),labels=continuous_cols[:-1],rotation='vertical')
+plt.axhline(y=0.1)
+plt.ylabel('F-test scores normalized')
+plt.show()
+
+df_1_f_reg=pd.DataFrame(data={'columns':continuous_cols[:-1],'F-scores normalized':scores})
+plt.figure()
+plt.hist(df_1_f_reg['F-scores normalized'])
+plt.show()
+# print(df_1_f_reg)
+
+# DISCUSSION: set f-score limit as 0.1
+
+f_score_lim=0.1
+
+continousCols=df_1_f_reg[df_1_f_reg['F-scores normalized']>=f_score_lim]['columns'].to_list() # Column names that could be used in prediction
+continousCols.append('SalePrice')
+
+sns.pairplot(df_1[continousCols])
+plt.show()
+
+corr=np.corrcoef(df_1[continousCols].to_numpy().T)
+sns.heatmap(corr)
+plt.show()
 
 
 #%% --------------------------------------------
-# Feature Selection for continuous features
-# ----------------------------------------------
-continuous_cols=column_df[column_df['col_category']==2]['cols'].to_list()
-df_1_contin=df_1[continuous_cols[:-1]] #removing Y column
-df_1_contin[df_1_contin['LotFrontage'].isnull()==True] # column 'LotFrontage' has null values
+# Prediction
+# --------------------------------------------
+df_2=df_1[continuousCols]
+y=df_2['SalePrice']
+X=df_2.drop(columns='SalePrice')
 
-#Trying Variance Threshold for feature selection
-sel_variance=VarianceThreshold()
-sel_variance_result=sel_variance.fit_transform(df_1_contin)
-print('Column count of Variance Threshold: {}'.format(sel_variance_result.shape[1]))
-if sel_variance_result.shape[1]==df_1_contin.shape[1]:
-    print('Variance Threshold is not working\n')
-
-# Trying f_regression for feature selection
-f_test,p_val=f_regression(df_1_contin,df_1['SalePrice'])
-print(f_test)
-
-print(p_val)
-
-
-# X_cols=['LotFrontage','LotArea','MasVnrArea'] #select a few columns for trials
-
-# plt.figure()
-# sns.pairplot(df_1[['LotFrontage','LotArea','SalePrice']])
-# plt.show()
-# # %%
-
-# %%
+# to-do's
+# 1) standardization
+# 2) train_test_split
+# 3) perform regression
