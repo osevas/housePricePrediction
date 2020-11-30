@@ -199,15 +199,34 @@ corr=np.corrcoef(df_1[continousCols].to_numpy().T)
 sns.heatmap(corr)
 plt.show()
 
+del continousCols[-1]
 
 #%% --------------------------------------------
 # Prediction
 # --------------------------------------------
-df_2=df_1[continuousCols]
-y=df_2['SalePrice']
-X=df_2.drop(columns='SalePrice')
+y=df_1['SalePrice']
+X=df_1[continousCols]
 
-# to-do's
-# 1) standardization
-# 2) train_test_split
-# 3) perform regression
+# train_test_split
+X_train,X_test,y_train,y_test=train_test_split(X,y,test_size=0.25)
+
+#%%
+# Normalization
+scaler=preprocessing.StandardScaler()
+X_train_scaled=scaler.fit_transform(X_train)
+
+# Evaluating scaling
+fig,ax=plt.subplots(nrows=5,ncols=2)
+for i in range(5):
+    ax[i,0].hist(df_1.iloc[:,i])
+    ax[i,1].hist(X_train_scaled[:,i])
+
+plt.show()
+
+# Scaling test set
+X_test_scaled=scaler.transform(X_test)
+
+# try regression and predicting
+# X has outliers
+# try regression without outliers
+
