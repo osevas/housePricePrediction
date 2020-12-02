@@ -20,6 +20,9 @@ from sklearn.feature_selection import VarianceThreshold, f_regression
 from sklearn.impute import KNNImputer
 from sklearn.model_selection import train_test_split
 from sklearn import preprocessing
+from sklearn import linear_model
+from sklearn.metrics import mean_squared_log_error
+from functions import rmsle
 
 
 
@@ -46,19 +49,19 @@ plt.show()
 
 # Need to remove outliers in Y
 # removing above 3rd_quarter+1.5*IQR
-IQR=df['SalePrice'].quantile(q=0.75)-df['SalePrice'].quantile(q=0.25)
-df=df[df['SalePrice']<=(df['SalePrice'].quantile(q=0.75)+1.5*IQR)]
-df.reset_index(inplace=True, drop=True)
-# df is now main DataFrame in which outliers of Y have been removed.
+# IQR=df['SalePrice'].quantile(q=0.75)-df['SalePrice'].quantile(q=0.25)
+# df=df[df['SalePrice']<=(df['SalePrice'].quantile(q=0.75)+1.5*IQR)]
+# df.reset_index(inplace=True, drop=True)
+# # df is now main DataFrame in which outliers of Y have been removed.
 
-fig,axs=plt.subplots(nrows=1,ncols=2)
-axs[0].hist(df['SalePrice'])
-axs[0].set_title('SalePrice with no Outliers')
+# fig,axs=plt.subplots(nrows=1,ncols=2)
+# axs[0].hist(df['SalePrice'])
+# axs[0].set_title('SalePrice with no Outliers')
 
-axs[1].boxplot(df['SalePrice'])
-axs[1].set_title('SalePrice with no Outliers')
+# axs[1].boxplot(df['SalePrice'])
+# axs[1].set_title('SalePrice with no Outliers')
 
-plt.show()
+# plt.show()
 
 
 # %%--------------------------------------------
@@ -107,7 +110,7 @@ column_df=column1_df.append(column_df)
 del df_2,df_3,column1_df
 
 #%% --------------------------------------------
-# Feature Selection for continuous features (type=2)
+# Feature Analysis for continuous features (type=2)
 # ----------------------------------------------
 continuous_cols=column_df[column_df['col_category']==2]['cols'].to_list()
 # df_1_contin=df_1[continuous_cols] 
@@ -158,7 +161,9 @@ df_1[continuous_cols[:-1]]=imputed
 
 
 
-#%%
+#%% --------------------------------------------
+# Feature Selection for continuous features (type=2)
+# ----------------------------------------------
 #Trying Variance Threshold for feature selection
 sel_variance=VarianceThreshold()
 sel_variance_result=sel_variance.fit_transform(df_1[continuous_cols[:-1]])
@@ -166,7 +171,7 @@ print('Column count of Variance Threshold: {}'.format(sel_variance_result.shape[
 if sel_variance_result.shape[1]==df_1[continuous_cols[:-1]].shape[1]:
     print('Variance Threshold is not working\n')
 
-#%% Trying f_regression for feature selection
+# Trying f_regression for feature selection
 f_test,p_val=f_regression(df_1[continuous_cols[:-1]],df_1['SalePrice'])
 # print(f_test/f_test.max())
 
@@ -202,13 +207,13 @@ plt.show()
 del continousCols[-1]
 
 #%% --------------------------------------------
-# Prediction
+# Train-valid-split & Normalization
 # --------------------------------------------
 y=df_1['SalePrice']
 X=df_1[continousCols]
 
-# train_test_split
-X_train,X_test,y_train,y_test=train_test_split(X,y,test_size=0.25)
+# train_valid_split
+X_train,X_valid,y_train,y_valid=train_valid_split(X,y,valid_size=0.25)
 
 #%%
 # Normalization
@@ -216,17 +221,35 @@ scaler=preprocessing.StandardScaler()
 X_train_scaled=scaler.fit_transform(X_train)
 
 # Evaluating scaling
-fig,ax=plt.subplots(nrows=5,ncols=2)
+fig,ax=plt.subplots(nrows=5,ncols=2,figsize=(10,20))
 for i in range(5):
-    ax[i,0].hist(df_1.iloc[:,i])
+    ax[i,0].hist(X_train.iloc[:,i])
     ax[i,1].hist(X_train_scaled[:,i])
+    ax[i,0].set_title(continousCols[i])
 
 plt.show()
 
-# Scaling test set
-X_test_scaled=scaler.transform(X_test)
+# Scaling valid set
+X_valid_scaled=scaler.transform(X_valid)
 
-# try regression and predicting
-# X has outliers
-# try regression without outliers
+# convert 2 variables to Gaussion
+# MasVnrArea, BsmtFinSF1
+
+#%% --------------------------------------------
+# Prediction
+# --------------------------------------------
+
+# Models to try:
+# 1) Ordinary least squares
+# 2) Decision trees
+# 3) Ensemble method -> Random Forest
+
+# Ordinary least squares
+reg=linear_model.LinearRegression()
+reg.fit(X_train_scaled,y_train)
+print('Train R^2 of ordinary least squares: {:.3}'.format(reg.score(X_train_scaled,y_train))) #calculating train accuracy
+print('valid R^2 of ordinary least squares: {:.3}'.format(reg.score(X_valid_scaled,y_valid))) #calculating valid accuracy
+
+print('Train RMSLE of ordinary least squares: {:.3}'.format(rmsle(y_train,reg.predict(X_train_scaled)))) #calculating train rmsle
+print('valid RMSLE of ordinary least squares: {:.3}'.format(rmsle(y_valid,reg.predict(X_valid_scaled)))) #calculating valid rmsle
 
