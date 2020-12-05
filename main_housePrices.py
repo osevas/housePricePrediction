@@ -22,7 +22,8 @@ from sklearn.model_selection import train_test_split
 from sklearn import preprocessing
 from sklearn import linear_model
 from sklearn.metrics import mean_squared_log_error
-from functions import rmsle
+import functions
+
 
 
 
@@ -48,11 +49,8 @@ axs[1].set_title('SalePrice with Outliers')
 plt.show()
 
 # Need to remove outliers in Y
-# removing above 3rd_quarter+1.5*IQR
-# IQR=df['SalePrice'].quantile(q=0.75)-df['SalePrice'].quantile(q=0.25)
-# df=df[df['SalePrice']<=(df['SalePrice'].quantile(q=0.75)+1.5*IQR)]
-# df.reset_index(inplace=True, drop=True)
-# # df is now main DataFrame in which outliers of Y have been removed.
+
+
 
 # fig,axs=plt.subplots(nrows=1,ncols=2)
 # axs[0].hist(df['SalePrice'])
@@ -207,16 +205,19 @@ plt.show()
 del continousCols[-1]
 
 #%% --------------------------------------------
-# Train-valid-split & Normalization
+# Train-valid-split & Scaling
 # --------------------------------------------
 y=df_1['SalePrice']
 X=df_1[continousCols]
 
 # train_valid_split
-X_train,X_valid,y_train,y_valid=train_valid_split(X,y,valid_size=0.25)
+X_train,X_valid,y_train,y_valid=train_test_split(X,y,test_size=0.25)
+
+# Tried mapping non-Gaussian features to Gaussian, but it did not give good result
+#X_train[['MasVnrArea','BsmtFinSF1']]=functions.map_to_Gaussian(X_train[['MasVnrArea','BsmtFinSF1']],'yeo-johnson')
 
 #%%
-# Normalization
+# Scaling
 scaler=preprocessing.StandardScaler()
 X_train_scaled=scaler.fit_transform(X_train)
 
@@ -229,7 +230,10 @@ for i in range(5):
 
 plt.show()
 
-# Scaling valid set
+
+
+
+# Scaling validation set
 X_valid_scaled=scaler.transform(X_valid)
 
 # convert 2 variables to Gaussion
@@ -248,8 +252,10 @@ X_valid_scaled=scaler.transform(X_valid)
 reg=linear_model.LinearRegression()
 reg.fit(X_train_scaled,y_train)
 print('Train R^2 of ordinary least squares: {:.3}'.format(reg.score(X_train_scaled,y_train))) #calculating train accuracy
-print('valid R^2 of ordinary least squares: {:.3}'.format(reg.score(X_valid_scaled,y_valid))) #calculating valid accuracy
+print('Test R^2 of ordinary least squares: {:.3}'.format(reg.score(X_valid_scaled,y_valid))) #calculating valid accuracy
 
-print('Train RMSLE of ordinary least squares: {:.3}'.format(rmsle(y_train,reg.predict(X_train_scaled)))) #calculating train rmsle
-print('valid RMSLE of ordinary least squares: {:.3}'.format(rmsle(y_valid,reg.predict(X_valid_scaled)))) #calculating valid rmsle
+print('Train RMSLE of ordinary least squares: {:.3}'.format(functions.rmsle(y_train,reg.predict(X_train_scaled)))) #calculating train rmsle
+print('Test RMSLE of ordinary least squares: {:.3}'.format(functions.rmsle(y_valid,reg.predict(X_valid_scaled)))) #calculating valid rmsle
 
+
+# %%
