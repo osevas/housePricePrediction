@@ -20,7 +20,7 @@ from sklearn.feature_selection import VarianceThreshold, f_regression
 from sklearn.impute import KNNImputer
 from sklearn.model_selection import train_test_split
 from sklearn import preprocessing
-from sklearn import linear_model
+from sklearn import linear_model, tree
 from sklearn.metrics import mean_squared_log_error
 import functions
 
@@ -50,16 +50,16 @@ plt.show()
 
 # Need to remove outliers in Y
 
+df=functions.remove_outlier(df,'SalePrice')
 
+fig,axs=plt.subplots(nrows=1,ncols=2)
+axs[0].hist(df['SalePrice'])
+axs[0].set_title('SalePrice with no Outliers')
 
-# fig,axs=plt.subplots(nrows=1,ncols=2)
-# axs[0].hist(df['SalePrice'])
-# axs[0].set_title('SalePrice with no Outliers')
+axs[1].boxplot(df['SalePrice'])
+axs[1].set_title('SalePrice with no Outliers')
 
-# axs[1].boxplot(df['SalePrice'])
-# axs[1].set_title('SalePrice with no Outliers')
-
-# plt.show()
+plt.show()
 
 
 # %%--------------------------------------------
@@ -204,6 +204,11 @@ plt.show()
 
 del continousCols[-1]
 
+# Removing outliers in selected columns that need outlier removal
+# First i analyzed the features separately and then decided which column needs outlier removal
+for column in continousCols[1:]:
+    df_1=functions.remove_outlier(df_1,column)
+
 #%% --------------------------------------------
 # Train-valid-split & Scaling
 # --------------------------------------------
@@ -211,36 +216,51 @@ y=df_1['SalePrice']
 X=df_1[continousCols]
 
 # train_valid_split
-X_train,X_valid,y_train,y_valid=train_test_split(X,y,test_size=0.25)
+X_train,X_valid,y_train,y_valid=train_test_split(X,y,test_size=0.40)
 
 # Tried mapping non-Gaussian features to Gaussian, but it did not give good result
 #X_train[['MasVnrArea','BsmtFinSF1']]=functions.map_to_Gaussian(X_train[['MasVnrArea','BsmtFinSF1']],'yeo-johnson')
 
 #%%
 # Scaling
-scaler=preprocessing.StandardScaler()
-X_train_scaled=scaler.fit_transform(X_train)
+# scaler=preprocessing.StandardScaler() # StandardScaler produces negative values, which become problematic later in calculating RMLSE
+# X_train_scaled=scaler.fit_transform(X_train)
 
-# Evaluating scaling
-fig,ax=plt.subplots(nrows=5,ncols=2,figsize=(10,20))
-for i in range(5):
-    ax[i,0].hist(X_train.iloc[:,i])
-    ax[i,1].hist(X_train_scaled[:,i])
-    ax[i,0].set_title(continousCols[i])
+X_train_scaled=preprocessing.minmax_scale(X_train,feature_range=(0,1),axis=0,copy=True)
 
-plt.show()
+# X_train_scaled=pd.DataFrame(data=X_train_scaled,columns=continousCols)
+# # Evaluating scaling of train
+# fig,ax=plt.subplots(nrows=5,ncols=2,figsize=(10,20))
+# for i in range(5):
+#     ax[i,0].hist(X_train.iloc[:,i])
+#     ax[i,1].hist(X_train_scaled[:,i])
+#     ax[i,0].set_title(continousCols[i])
+
+# plt.show()
 
 
 
 
 # Scaling validation set
-X_valid_scaled=scaler.transform(X_valid)
+# X_valid_scaled=scaler.transform(X_valid) # StandardScaler produces negative values, which become problematic later in calculating RMLSE
+
+X_valid_scaled=preprocessing.minmax_scale(X_valid,feature_range=(0,1),axis=0,copy=True)
+
+# X_valid_scaled=pd.DataFrame(data=X_valid_scaled,columns=continousCols)
+# # Evaluating scaling of validation
+# fig,ax=plt.subplots(nrows=5,ncols=2,figsize=(10,20))
+# for i in range(5):
+#     ax[i,0].hist(X_valid.iloc[:,i])
+#     ax[i,1].hist(X_valid_scaled[:,i])
+#     ax[i,0].set_title(continousCols[i])
+
+# plt.show()
 
 # convert 2 variables to Gaussion
 # MasVnrArea, BsmtFinSF1
 
 #%% --------------------------------------------
-# Prediction
+# Fit & Prediction of Linear Regression
 # --------------------------------------------
 
 # Models to try:
@@ -254,8 +274,38 @@ reg.fit(X_train_scaled,y_train)
 print('Train R^2 of ordinary least squares: {:.3}'.format(reg.score(X_train_scaled,y_train))) #calculating train accuracy
 print('Test R^2 of ordinary least squares: {:.3}'.format(reg.score(X_valid_scaled,y_valid))) #calculating valid accuracy
 
-print('Train RMSLE of ordinary least squares: {:.3}'.format(functions.rmsle(y_train,reg.predict(X_train_scaled)))) #calculating train rmsle
-print('Test RMSLE of ordinary least squares: {:.3}'.format(functions.rmsle(y_valid,reg.predict(X_valid_scaled)))) #calculating valid rmsle
+y_train_predict=reg.predict(X_train_scaled)
+y_valid_predict=reg.predict(X_valid_scaled)
 
+print('Train RMSLE of ordinary least squares: {:.3}'.format(functions.rmsle(y_train,y_train_predict))) #calculating train rmsle
+print('Test RMSLE of ordinary least squares: {:.3}'.format(functions.rmsle(y_valid,y_valid_predict))) #calculating valid rmsle
 
+#%% --------------------------------------------
+# Fit & Prediction of Decision Tree Regressor
+# --------------------------------------------
+clf=tree.DecisionTreeRegressor()
+clf=clf.fit(X_train_scaled,y_train)
+
+y_train_predict=clf.predict(X_train_scaled)
+y_valid_predict=clf.predict(X_valid_scaled)
+
+print('Evaluation of DecisionTreeRegressor:\n')
+print('Train R^2 of DecisionTreeRegressor: {:.3}'.format(clf.score(X_train_scaled,y_train))) #calculating train accuracy
+print('Test R^2 of DecisionTreeRegressor: {:.3}'.format(clf.score(X_valid_scaled,y_valid))) #calculating valid accuracy
+print('Train RMSLE of DecisionTreeRegressor: {:.3}'.format(functions.rmsle(y_train,y_train_predict))) #calculating train rmsle
+print('Test RMSLE of DecisionTreeRegressor: {:.3}'.format(functions.rmsle(y_valid,y_valid_predict))) #calculating valid rmsle
+# %% Comparison of y_train and y_train_predict
+fig,axs=plt.subplots(nrows=1,ncols=2,figsize=(20,10))
+axs[0].scatter(X_train.iloc[:,1],y_train)
+axs[0].scatter(X_train.iloc[:,1],y_train_predict,marker='x')
+axs[0].set_title('y_train vs. y_train_predict')
+axs[0].set_xlabel(X_train.columns.values[1])
+axs[0].set_ylabel('SalePrice')
+
+axs[1].scatter(X_valid.iloc[:,1],y_valid)
+axs[1].scatter(X_valid.iloc[:,1],y_valid_predict,marker='x')
+axs[1].set_title('y_valid vs. y_valid_predict')
+axs[1].set_xlabel(X_train.columns.values[1])
+axs[1].set_ylabel('SalePrice')
+plt.show()
 # %%
