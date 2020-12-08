@@ -271,30 +271,50 @@ X_valid_scaled=preprocessing.minmax_scale(X_valid,feature_range=(0,1),axis=0,cop
 # Ordinary least squares
 reg=linear_model.LinearRegression()
 reg.fit(X_train_scaled,y_train)
-print('Train R^2 of ordinary least squares: {:.3}'.format(reg.score(X_train_scaled,y_train))) #calculating train accuracy
-print('Test R^2 of ordinary least squares: {:.3}'.format(reg.score(X_valid_scaled,y_valid))) #calculating valid accuracy
 
-y_train_predict=reg.predict(X_train_scaled)
-y_valid_predict=reg.predict(X_valid_scaled)
+train_r2_linreg=reg.score(X_train_scaled,y_train)
+test_r2_linreg=reg.score(X_valid_scaled,y_valid)
 
-print('Train RMSLE of ordinary least squares: {:.3}'.format(functions.rmsle(y_train,y_train_predict))) #calculating train rmsle
-print('Test RMSLE of ordinary least squares: {:.3}'.format(functions.rmsle(y_valid,y_valid_predict))) #calculating valid rmsle
+print('Train R^2 of ordinary least squares: {:.3}'.format(train_r2_linreg)) #calculating train accuracy
+print('Test R^2 of ordinary least squares: {:.3}'.format(test_r2_linreg)) #calculating valid accuracy
+
+#Linear Regression predicts a negative value.  This causes RMSLE not to be calculated.
+
+# y_train_predict=reg.predict(X_train_scaled)
+# y_valid_predict=reg.predict(X_valid_scaled)
+
+# train_rmsle_linreg=functions.rmsle(y_train,y_train_predict)
+# test_rmsle_linreg=functions.rmsle(y_valid,y_valid_predict)
+
+# print('Train RMSLE of ordinary least squares: {:.3}'.format(train_rmsle_linreg)) #calculating train rmsle
+# print('Test RMSLE of ordinary least squares: {:.3}'.format(test_rmsle_linreg)) #calculating valid rmsle
 
 #%% --------------------------------------------
 # Fit & Prediction of Decision Tree Regressor
 # --------------------------------------------
-clf=tree.DecisionTreeRegressor()
+clf=tree.DecisionTreeRegressor(max_depth=4)
 clf=clf.fit(X_train_scaled,y_train)
 
 y_train_predict=clf.predict(X_train_scaled)
 y_valid_predict=clf.predict(X_valid_scaled)
 
+train_r2_DTreg=clf.score(X_train_scaled,y_train)
+test_r2_DTreg=clf.score(X_valid_scaled,y_valid)
+
+train_rmsle_DTreg=functions.rmsle(y_train,y_train_predict)
+test_rmsle_DTreg=functions.rmsle(y_valid,y_valid_predict)
+
 print('Evaluation of DecisionTreeRegressor:\n')
-print('Train R^2 of DecisionTreeRegressor: {:.3}'.format(clf.score(X_train_scaled,y_train))) #calculating train accuracy
-print('Test R^2 of DecisionTreeRegressor: {:.3}'.format(clf.score(X_valid_scaled,y_valid))) #calculating valid accuracy
-print('Train RMSLE of DecisionTreeRegressor: {:.3}'.format(functions.rmsle(y_train,y_train_predict))) #calculating train rmsle
-print('Test RMSLE of DecisionTreeRegressor: {:.3}'.format(functions.rmsle(y_valid,y_valid_predict))) #calculating valid rmsle
-# %% Comparison of y_train and y_train_predict
+print('Train R^2 of DecisionTreeRegressor: {:.3}'.format(train_r2_DTreg)) #calculating train accuracy
+print('Test R^2 of DecisionTreeRegressor: {:.3}'.format(test_r2_DTreg)) #calculating valid accuracy
+print('Train RMSLE of DecisionTreeRegressor: {:.3}'.format(train_rmsle_DTreg)) #calculating train rmsle
+print('Test RMSLE of DecisionTreeRegressor: {:.3}'.format(test_rmsle_DTreg)) #calculating valid rmsle
+
+
+
+#%% --------------------------------------------
+# Comparison of y_train and y_train_predict
+# --------------------------------------------
 fig,axs=plt.subplots(nrows=1,ncols=2,figsize=(20,10))
 axs[0].scatter(X_train.iloc[:,1],y_train)
 axs[0].scatter(X_train.iloc[:,1],y_train_predict,marker='x')
@@ -308,4 +328,13 @@ axs[1].set_title('y_valid vs. y_valid_predict')
 axs[1].set_xlabel(X_train.columns.values[1])
 axs[1].set_ylabel('SalePrice')
 plt.show()
+#%% --------------------------------------------
+# Comparison of models
+# --------------------------------------------
+model_result=pd.DataFrame(data={'Model':['Linear Regression','Decision Tree Regressor'],
+    'Train R2':[train_r2_linreg,train_r2_DTreg],
+    'Test R2':[test_r2_linreg,test_r2_DTreg],
+    'Train RMSLE':['N/A',train_rmsle_DTreg],
+    'Test RMSLE':['N/A',test_rmsle_DTreg]})
+print(model_result)
 # %%
