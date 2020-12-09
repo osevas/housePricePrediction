@@ -23,6 +23,7 @@ from sklearn import preprocessing
 from sklearn import linear_model, tree
 from sklearn.metrics import mean_squared_log_error
 import functions
+from sklearn.ensemble import AdaBoostRegressor
 
 
 
@@ -111,6 +112,8 @@ del df_2,df_3,column1_df
 # Feature Analysis for continuous features (type=2)
 # ----------------------------------------------
 continuous_cols=column_df[column_df['col_category']==2]['cols'].to_list()
+continuous_cols=continuous_cols[:-1] #removing 'SalePrice' from continuous columns
+
 # df_1_contin=df_1[continuous_cols] 
 # df_1_contin[df_1_contin['LotFrontage'].isnull()==True] # column 'LotFrontage' and 'MasVnrArea' has null values
 
@@ -150,13 +153,33 @@ continuous_cols=column_df[column_df['col_category']==2]['cols'].to_list()
 # ----------------------------------------------
 
 #%% --------------------------------------------
+# Feature Analysis for columns with type=3
+# ----------------------------------------------
+year_cols=column_df[column_df['col_category']==3]['cols'].to_list()
+# Column 'GarageYrBlt' has null values
+
+fig, axs=plt.subplots(nrows=1,ncols=4,figsize=(20,20))
+for i,col in enumerate(year_cols):
+    axs[i].hist(df_1[col])
+    axs[i].set_title(col)
+plt.show()
+
+fig, axs=plt.subplots(nrows=1,ncols=4,figsize=(20,20))
+for i,col in enumerate(year_cols):
+    axs[i].scatter(df_1[col],df_1['SalePrice'])
+    axs[i].set_title(col)
+plt.show()
+
+#%% --------------------------------------------
 # Imputation for missing values
 # --------------------------------------------
 # using KNNImputer to fill in nulls in 
-imputer=KNNImputer(n_neighbors=10,copy=False)
-imputed=imputer.fit_transform(df_1[continuous_cols[:-1]],y=df_1['SalePrice'])
-df_1[continuous_cols[:-1]]=imputed
 
+continuous_cols=continuous_cols+year_cols #adding year columns to continuous columns
+
+imputer=KNNImputer(n_neighbors=10,copy=False)
+imputed=imputer.fit_transform(df_1[continuous_cols],y=df_1['SalePrice'])
+df_1[continuous_cols]=imputed
 
 
 #%% --------------------------------------------
@@ -164,37 +187,35 @@ df_1[continuous_cols[:-1]]=imputed
 # ----------------------------------------------
 #Trying Variance Threshold for feature selection
 sel_variance=VarianceThreshold()
-sel_variance_result=sel_variance.fit_transform(df_1[continuous_cols[:-1]])
+sel_variance_result=sel_variance.fit_transform(df_1[continuous_cols])
 print('Column count of Variance Threshold: {}'.format(sel_variance_result.shape[1]))
-if sel_variance_result.shape[1]==df_1[continuous_cols[:-1]].shape[1]:
+if sel_variance_result.shape[1]==df_1[continuous_cols].shape[1]:
     print('Variance Threshold is not working\n')
 
 # Trying f_regression for feature selection
-f_test,p_val=f_regression(df_1[continuous_cols[:-1]],df_1['SalePrice'])
+f_test,p_val=f_regression(df_1[continuous_cols],df_1['SalePrice'])
 # print(f_test/f_test.max())
 
 scores=f_test/f_test.max()
 
 plt.figure()
 plt.bar(x=np.arange(p_val.shape[0]),height=scores,label='F-scores normalized')
-plt.xticks(ticks=np.arange(p_val.shape[0]),labels=continuous_cols[:-1],rotation='vertical')
+plt.xticks(ticks=np.arange(p_val.shape[0]),labels=continuous_cols,rotation='vertical')
 plt.axhline(y=0.1)
 plt.ylabel('F-test scores normalized')
 plt.show()
 
-df_1_f_reg=pd.DataFrame(data={'columns':continuous_cols[:-1],'F-scores normalized':scores})
-plt.figure()
-plt.hist(df_1_f_reg['F-scores normalized'])
-plt.show()
-# print(df_1_f_reg)
+df_1_f_reg=pd.DataFrame(data={'columns':continuous_cols,'F-scores normalized':scores})
+# plt.figure()
+# plt.hist(df_1_f_reg['F-scores normalized'])
+# plt.show()
+
 
 # DISCUSSION: set f-score limit as 0.1
-
 f_score_lim=0.1
 
 continousCols=df_1_f_reg[df_1_f_reg['F-scores normalized']>=f_score_lim]['columns'].to_list() # Column names that could be used in prediction
 continousCols.append('SalePrice')
-
 sns.pairplot(df_1[continousCols])
 plt.show()
 
@@ -310,6 +331,26 @@ print('Test R^2 of DecisionTreeRegressor: {:.3}'.format(test_r2_DTreg)) #calcula
 print('Train RMSLE of DecisionTreeRegressor: {:.3}'.format(train_rmsle_DTreg)) #calculating train rmsle
 print('Test RMSLE of DecisionTreeRegressor: {:.3}'.format(test_rmsle_DTreg)) #calculating valid rmsle
 
+#%% --------------------------------------------
+# Fit & Prediction of AdaBoost Regressor
+# --------------------------------------------
+regr=AdaBoostRegressor(loss='exponential')
+regr.fit(X_train_scaled,y_train)
+
+y_train_predict=regr.predict(X_train_scaled)
+y_valid_predict=regr.predict(X_valid_scaled)
+
+train_r2_ABreg=regr.score(X_train_scaled,y_train)
+test_r2_ABreg=regr.score(X_valid_scaled,y_valid)
+
+train_rmsle_ABreg=functions.rmsle(y_train,y_train_predict)
+test_rmsle_ABreg=functions.rmsle(y_valid,y_valid_predict)
+
+print('Evaluation of AdaBoost Regressor:\n')
+print('Train R^2 of AdaBoost Regressor: {:.3}'.format(train_r2_ABreg)) #calculating train accuracy
+print('Test R^2 of AdaBoost Regressor: {:.3}'.format(test_r2_ABreg)) #calculating valid accuracy
+print('Train RMSLE of AdaBoost Regressor: {:.3}'.format(train_rmsle_ABreg)) #calculating train rmsle
+print('Test RMSLE of AdaBoost Regressor: {:.3}'.format(test_rmsle_ABreg)) #calculating valid rmsle
 
 
 #%% --------------------------------------------
@@ -331,10 +372,10 @@ plt.show()
 #%% --------------------------------------------
 # Comparison of models
 # --------------------------------------------
-model_result=pd.DataFrame(data={'Model':['Linear Regression','Decision Tree Regressor'],
-    'Train R2':[train_r2_linreg,train_r2_DTreg],
-    'Test R2':[test_r2_linreg,test_r2_DTreg],
-    'Train RMSLE':['N/A',train_rmsle_DTreg],
-    'Test RMSLE':['N/A',test_rmsle_DTreg]})
+model_result=pd.DataFrame(data={'Model':['Linear Regression','Decision Tree Regressor','AdaBoost Regressor'],
+    'Train R2':[train_r2_linreg,train_r2_DTreg,train_r2_ABreg],
+    'Test R2':[test_r2_linreg,test_r2_DTreg,test_r2_ABreg],
+    'Train RMSLE':['N/A',train_rmsle_DTreg,train_rmsle_ABreg],
+    'Test RMSLE':['N/A',test_rmsle_DTreg,test_rmsle_ABreg]})
 print(model_result)
 # %%
