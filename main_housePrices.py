@@ -171,11 +171,45 @@ for i,col in enumerate(year_cols):
 plt.show()
 
 #%% --------------------------------------------
+# Feature Analysis for columns with type=4
+# ----------------------------------------------
+count_cols=column_df[column_df['col_category']==4]['cols'].to_list()
+# count_cols have no null values
+
+fig, axs=plt.subplots(nrows=1,ncols=10,figsize=(30,10))
+for i,col in enumerate(count_cols):
+    axs[i].hist(df_1[col])
+    axs[i].set_title(col)
+plt.show()
+
+fig, axs=plt.subplots(nrows=1,ncols=10,figsize=(30,10))
+for i,col in enumerate(count_cols):
+    axs[i].scatter(df_1[col],df_1['SalePrice'])
+    axs[i].set_title(col)
+plt.show()
+
+#%% --------------------------------------------
+# Feature Analysis for columns with type=5
+# ----------------------------------------------
+price_cols=column_df[column_df['col_category']==5]['cols'].to_list()
+# count_cols have no null values
+
+plt.figure(figsize=(30,10))
+plt.hist(df_1[price_cols[0]])
+plt.title(price_cols[0])
+plt.show()
+
+plt.figure(figsize=(30,10))
+plt.scatter(df_1[price_cols[0]],df_1['SalePrice'])
+plt.title(price_cols[0])
+plt.show()
+
+#%% --------------------------------------------
 # Imputation for missing values
 # --------------------------------------------
 # using KNNImputer to fill in nulls in 
 
-continuous_cols=continuous_cols+year_cols #adding year columns to continuous columns
+continuous_cols=continuous_cols+year_cols+count_cols+price_cols #adding year columns to continuous columns
 
 imputer=KNNImputer(n_neighbors=10,copy=False)
 imputed=imputer.fit_transform(df_1[continuous_cols],y=df_1['SalePrice'])
@@ -198,10 +232,13 @@ f_test,p_val=f_regression(df_1[continuous_cols],df_1['SalePrice'])
 
 scores=f_test/f_test.max()
 
+# DISCUSSION: set f-score limit
+f_score_lim=0.1
+
 plt.figure()
 plt.bar(x=np.arange(p_val.shape[0]),height=scores,label='F-scores normalized')
 plt.xticks(ticks=np.arange(p_val.shape[0]),labels=continuous_cols,rotation='vertical')
-plt.axhline(y=0.1)
+plt.axhline(y=f_score_lim)
 plt.ylabel('F-test scores normalized')
 plt.show()
 
@@ -210,24 +247,23 @@ df_1_f_reg=pd.DataFrame(data={'columns':continuous_cols,'F-scores normalized':sc
 # plt.hist(df_1_f_reg['F-scores normalized'])
 # plt.show()
 
-
-# DISCUSSION: set f-score limit as 0.1
-f_score_lim=0.1
-
 continousCols=df_1_f_reg[df_1_f_reg['F-scores normalized']>=f_score_lim]['columns'].to_list() # Column names that could be used in prediction
 continousCols.append('SalePrice')
-sns.pairplot(df_1[continousCols])
-plt.show()
+# sns.pairplot(df_1[continousCols])
+# plt.show()
 
-corr=np.corrcoef(df_1[continousCols].to_numpy().T)
-sns.heatmap(corr)
-plt.show()
+# corr=np.corrcoef(df_1[continousCols].to_numpy().T)
+# sns.heatmap(corr)
+# plt.show()
 
 del continousCols[-1]
 
+#%% --------------------------------------------
+# Outlier removal from features
+# ----------------------------------------------
 # Removing outliers in selected columns that need outlier removal
 # First i analyzed the features separately and then decided which column needs outlier removal
-for column in continousCols[1:]:
+for column in continousCols[1:5]:
     df_1=functions.remove_outlier(df_1,column)
 
 #%% --------------------------------------------
@@ -356,17 +392,18 @@ print('Test RMSLE of AdaBoost Regressor: {:.3}'.format(test_rmsle_ABreg)) #calcu
 #%% --------------------------------------------
 # Comparison of y_train and y_train_predict
 # --------------------------------------------
+j=4
 fig,axs=plt.subplots(nrows=1,ncols=2,figsize=(20,10))
-axs[0].scatter(X_train.iloc[:,1],y_train)
-axs[0].scatter(X_train.iloc[:,1],y_train_predict,marker='x')
+axs[0].scatter(X_train.iloc[:,j],y_train)
+axs[0].scatter(X_train.iloc[:,j],y_train_predict,marker='x')
 axs[0].set_title('y_train vs. y_train_predict')
-axs[0].set_xlabel(X_train.columns.values[1])
+axs[0].set_xlabel(X_train.columns.values[4])
 axs[0].set_ylabel('SalePrice')
 
-axs[1].scatter(X_valid.iloc[:,1],y_valid)
-axs[1].scatter(X_valid.iloc[:,1],y_valid_predict,marker='x')
+axs[1].scatter(X_valid.iloc[:,j],y_valid)
+axs[1].scatter(X_valid.iloc[:,j],y_valid_predict,marker='x')
 axs[1].set_title('y_valid vs. y_valid_predict')
-axs[1].set_xlabel(X_train.columns.values[1])
+axs[1].set_xlabel(X_train.columns.values[4])
 axs[1].set_ylabel('SalePrice')
 plt.show()
 #%% --------------------------------------------
@@ -378,4 +415,15 @@ model_result=pd.DataFrame(data={'Model':['Linear Regression','Decision Tree Regr
     'Train RMSLE':['N/A',train_rmsle_DTreg,train_rmsle_ABreg],
     'Test RMSLE':['N/A',test_rmsle_DTreg,test_rmsle_ABreg]})
 print(model_result)
+#%% --------------------------------------------
+# Residual plot
+# --------------------------------------------
+fig,axs=plt.subplots(nrows=1,ncols=2,figsize=(20,10))
+axs[0].hist(y_train-reg.predict(X_train_scaled))
+axs[0].set_title('Residual plot of train set')
+
+axs[1].hist(y_valid-reg.predict(X_valid_scaled))
+axs[1].set_title('Residual plot of test set')
+plt.show()
+
 # %%
