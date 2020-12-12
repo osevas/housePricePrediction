@@ -205,6 +205,32 @@ plt.title(price_cols[0])
 plt.show()
 
 #%% --------------------------------------------
+# Feature Analysis for columns with type=1 (categorical)
+# ----------------------------------------------
+categorical_cols=column_df[column_df['col_category']==1]['cols'].to_list()
+
+# Dropping categorical features with missing values.  Deciding not to impute
+df_1.drop(columns=['Alley','MasVnrType','BsmtQual','BsmtCond',
+    'BsmtExposure','BsmtFinType1','BsmtFinType2','Electrical',
+    'FireplaceQu','GarageType','GarageFinish','GarageQual',
+    'GarageCond','PavedDrive','PoolQC','Fence','MiscFeature'],inplace=True)
+
+#%% --------------------------------------------
+# Feature Selection for columns with type=1 (categorical)
+# ----------------------------------------------
+
+
+
+
+
+
+
+
+
+
+
+
+#%% --------------------------------------------
 # Imputation for missing values
 # --------------------------------------------
 # using KNNImputer to fill in nulls in 
