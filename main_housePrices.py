@@ -500,3 +500,5 @@ y_test_predict=regr.predict(X_test_scaled)
 # %%
 prediction=pd.DataFrame(data={'Id':df_test['Id'].to_numpy(),'SalePrice':y_test_predict})
 # %%
+prediction.to_csv('submitPrediction.csv',index=False,)
+# %%
